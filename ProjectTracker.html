@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Hour Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #2b2b2b;
+            color: #f0f0f0;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 220px;
+            height: 100%;
+            background-color: #232323;
+            padding-top: 40px;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+        .sidebar h2 {
+            color: #ffa726;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+        .sidebar li {
+            margin: 0;
+        }
+        .sidebar button {
+            width: 90%;
+            margin: 10px 5%;
+            padding: 12px;
+            background: #3a3a3a;
+            color: #ffa726;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.2s;
+        }
+        .sidebar button.active, .sidebar button:hover {
+            background: #ffa726;
+            color: #232323;
+        }
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+        }
+        /* Existing styles below... */
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: #2b2b2b;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #ffa726; }
+        select, input, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ffa726;
+            border-radius: 4px;
+            background-color: #3a3a3a;
+            color: #f0f0f0;
+        }
+        select:focus, input:focus, button:focus { outline: none; border-color: #ffb74d; }
+        button { background-color: #ffa726; color: #1e1e1e; cursor: pointer; }
+        button:hover { background-color: #ffb74d; }
+        canvas { margin-top: 20px; }
+        .last-updated { margin-top: 10px; font-size: 14px; color: #ffcc80; }
+        details summary { cursor: pointer; color: #ffa726; }
+        details summary:hover { color: #ffb74d; }
+        details[open] summary { color: #ffcc80; }
+        .full-width {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ffa726;
+            border-radius: 4px;
+            background-color: #3a3a3a;
+            color: #f0f0f0;
+        }
+        /* Hide all tab content by default */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        /* Todo list styles */
+        .todo-list { margin-top: 20px; }
+        .todo-list input[type="text"], 
+        .todo-list input#todo-tag-input, 
+        .todo-list select#tag-filter {
+            width: 100%;
+            display: block;
+            margin-bottom: 5px;
+            box-sizing: border-box;
+        }
+        .todo-list button#add-todo-btn {
+            width: 100%;
+            margin-left: 0;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .todo-list ul { list-style: none; padding: 0; }
+        .todo-list li { padding: 8px 0; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center; }
+        .todo-list li.completed { text-decoration: line-through; color: #aaa; }
+        .todo-list .remove-btn {
+            background: #ffb74d;
+            color: #232323;
+            border: none;
+            border-radius: 3px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+        /* Add to your style section */
+        .todo-list input#todo-tag-input {
+            margin-bottom: 5px;
+            width: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <ul style="margin-top: 0;">
+            <li><button id="tab-projects" class="active">Project Tracker</button></li>
+            <li><button id="tab-todo">Todo List</button></li>
+        </ul>
+    </div>
+    <div class="main-content">
+        <!-- Project Tracker Tab -->
+        <div id="content-projects" class="tab-content active">
+            <div class="container">
+                <img src="Logo_light@0.75x.png" alt="Project Hour Tracker Logo" style="display: block; margin: 0 auto 20px; max-width: 350px;">
+                <h1>Project Hour Tracker</h1>
+                <div class="form-group">
+                    <label for="project-select">Select a Project:</label>
+                    <select id="project-select" class="full-width"></select>
+                </div>
+                <div class="form-group">
+                    <label for="hours-input">Enter Hours (negative to subtract):</label>
+                    <input type="number" id="hours-input" class="full-width" step="0.1" placeholder="Enter hours">
+                </div>
+                <button id="update-button">Update Hours</button>
+                <canvas id="hours-chart"></canvas>
+                <div id="last-updated" class="last-updated"></div>
+            </div>
+            <div class="container">
+                <h2>Manage Projects</h2>
+                <details>
+                    <summary>Edit Project Details</summary>
+                    <div class="form-group">
+                        <label for="edit-project-name">Edit Project Name:</label>
+                        <input type="text" id="edit-project-name" placeholder="Enter new project name">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-planned-hours">Edit Planned Hours:</label>
+                        <input type="number" id="edit-planned-hours" step="0.1" placeholder="Enter new planned hours">
+                    </div>
+                    <button id="save-edit-button">Save Changes</button>
+                </details>
+                <h2>Manage Projects</h2>
+                <button id="add-project-button">Add New Project</button>
+                <button id="delete-project-button">Delete Selected Project</button>
+            </div>
+            <div class="container">
+                <h2>Project History</h2>
+                <details>
+                    <summary>View Update History</summary>
+                    <ul id="history-list" style="list-style-type: none; padding: 0; color: #f0f0f0;"></ul>
+                </details>
+            </div>
+        </div>
+        <!-- Todo List Tab -->
+        <div id="content-todo" class="tab-content">
+            <div class="container">
+                <h1>Todo List</h1>
+                <div class="todo-list">
+                    <input type="text" id="todo-input" placeholder="Add a new task...">
+                    <input type="text" id="todo-tag-input" placeholder="Add tags (comma separated)">
+                    <button id="add-todo-btn">Add</button>
+                    <select id="tag-filter">
+                        <option value="">All Tags</option>
+                    </select>
+                    <ul id="todo-list"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Tab switching logic
+        const tabProjects = document.getElementById("tab-projects");
+        const tabTodo = document.getElementById("tab-todo");
+        const contentProjects = document.getElementById("content-projects");
+        const contentTodo = document.getElementById("content-todo");
+
+        tabProjects.addEventListener("click", () => {
+            tabProjects.classList.add("active");
+            tabTodo.classList.remove("active");
+            contentProjects.classList.add("active");
+            contentTodo.classList.remove("active");
+        });
+        tabTodo.addEventListener("click", () => {
+            tabTodo.classList.add("active");
+            tabProjects.classList.remove("active");
+            contentTodo.classList.add("active");
+            contentProjects.classList.remove("active");
+        });
+
+        // --- Project Tracker JS (existing code) ---
+        const defaultData = {
+            "Project A": { planned: 100, completed: 50, last_updated: "2025-04-20 14:30:00", history: [] },
+            "Project B": { planned: 200, completed: 150, last_updated: "2025-04-21 10:15:00", history: [] },
+            "Project C": { planned: 150, completed: 100, last_updated: "2025-04-22 08:45:00", history: [] }
+        };
+        const projectData = JSON.parse(localStorage.getItem("projectData")) || defaultData;
+        for (const project in projectData) {
+            if (!projectData[project].history) {
+                projectData[project].history = [];
+            }
+        }
+        const projectSelect = document.getElementById("project-select");
+        const hoursInput = document.getElementById("hours-input");
+        const updateButton = document.getElementById("update-button");
+        const chartCanvas = document.getElementById("hours-chart");
+        const lastUpdatedDiv = document.getElementById("last-updated");
+        const editProjectNameInput = document.getElementById("edit-project-name");
+        const editPlannedHoursInput = document.getElementById("edit-planned-hours");
+        const saveEditButton = document.getElementById("save-edit-button");
+        const addProjectButton = document.getElementById("add-project-button");
+        const deleteProjectButton = document.getElementById("delete-project-button");
+        const historyList = document.getElementById("history-list");
+        let chartInstance;
+
+        function saveData() {
+            localStorage.setItem("projectData", JSON.stringify(projectData));
+        }
+        function populateProjects() {
+            projectSelect.innerHTML = "";
+            for (const project in projectData) {
+                const option = document.createElement("option");
+                option.value = project;
+                option.textContent = project;
+                projectSelect.appendChild(option);
+            }
+            updateLastUpdated();
+            populateEditFields();
+        }
+        function updateCompletedHours() {
+            const selectedProject = projectSelect.value;
+            const hours = parseFloat(hoursInput.value);
+            if (!selectedProject || isNaN(hours)) {
+                alert("Please select a project and enter valid hours.");
+                return;
+            }
+            if (hours < 0 && projectData[selectedProject].completed < Math.abs(hours)) {
+                alert("Cannot remove more hours than completed.");
+                return;
+            }
+            projectData[selectedProject].completed += hours;
+            const timestamp = new Date().toISOString().replace("T", " ").split(".")[0];
+            projectData[selectedProject].last_updated = timestamp;
+            projectData[selectedProject].history.push({
+                date: timestamp,
+                hours: hours
+            });
+            saveData();
+            alert(`${hours >= 0 ? "Added" : "Removed"} ${Math.abs(hours)} hours for ${selectedProject}.`);
+            updateGraph();
+            updateLastUpdated();
+            populateHistory();
+            hoursInput.value = "";
+        }
+        function updateGraph() {
+            const projects = Object.keys(projectData);
+            const plannedHours = projects.map(project => projectData[project].planned);
+            const completedHours = projects.map(project => projectData[project].completed);
+            const percentages = projects.map(project => {
+                const planned = projectData[project].planned;
+                const completed = projectData[project].completed;
+                return planned > 0 ? ((completed / planned) * 100).toFixed(1) : 0;
+            });
+            const ctx = chartCanvas.getContext("2d");
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            chartInstance = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: projects,
+                    datasets: [
+                        {
+                            label: "Planned Hours",
+                            data: plannedHours,
+                            backgroundColor: "rgba(255, 167, 38, 0.7)",
+                            borderColor: "rgba(255, 167, 38, 1)",
+                            borderWidth: 1
+                        },
+                        {
+                            label: "Completed Hours",
+                            data: completedHours,
+                            backgroundColor: "rgba(255, 204, 128, 0.7)",
+                            borderColor: "rgba(255, 204, 128, 1)",
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: "#f0f0f0" }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    return `Completion: ${percentages[context.dataIndex]}%`;
+                                }
+                            },
+                            backgroundColor: "#333",
+                            titleColor: "#ffa726",
+                            bodyColor: "#f0f0f0"
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: "Projects",
+                                color: "#ffa726"
+                            },
+                            ticks: { color: "#f0f0f0" },
+                            grid: { color: "rgba(255, 255, 255, 0.1)" }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: "Hours",
+                                color: "#ffa726"
+                            },
+                            ticks: { color: "#f0f0f0" },
+                            grid: { color: "rgba(255, 255, 255, 0.1)" }
+                        }
+                    }
+                }
+            });
+        }
+        function updateLastUpdated() {
+            const selectedProject = projectSelect.value;
+            if (selectedProject) {
+                const lastUpdated = projectData[selectedProject].last_updated;
+                lastUpdatedDiv.textContent = `Last Updated: ${lastUpdated}`;
+            } else {
+                lastUpdatedDiv.textContent = "";
+            }
+        }
+        function populateEditFields() {
+            const selectedProject = projectSelect.value;
+            if (selectedProject) {
+                editProjectNameInput.value = selectedProject;
+                editPlannedHoursInput.value = projectData[selectedProject].planned;
+            }
+        }
+        function populateHistory() {
+            const selectedProject = projectSelect.value;
+            historyList.innerHTML = "";
+            if (selectedProject && projectData[selectedProject].history) {
+                projectData[selectedProject].history.forEach(entry => {
+                    const listItem = document.createElement("li");
+                    listItem.textContent = `Project: ${selectedProject}, Date: ${entry.date}, Hours: ${entry.hours >= 0 ? "+" : ""}${entry.hours}`;
+                    historyList.appendChild(listItem);
+                });
+            }
+        }
+        function addProject() {
+            const newProjectName = prompt("Enter the name of the new project:");
+            if (!newProjectName || projectData[newProjectName]) {
+                alert("Invalid project name or project already exists.");
+                return;
+            }
+            const plannedHours = parseFloat(prompt("Enter the planned hours for the new project:"));
+            if (isNaN(plannedHours) || plannedHours <= 0) {
+                alert("Please enter valid planned hours.");
+                return;
+            }
+            projectData[newProjectName] = {
+                planned: plannedHours,
+                completed: 0,
+                last_updated: new Date().toISOString().replace("T", " ").split(".")[0],
+                history: []
+            };
+            saveData();
+            alert("New project added successfully.");
+            populateProjects();
+            updateGraph();
+        }
+        function deleteProject() {
+            const selectedProject = projectSelect.value;
+            if (!selectedProject) {
+                alert("Please select a project to delete.");
+                return;
+            }
+            const confirmation = confirm(`Are you sure you want to delete the project "${selectedProject}"?`);
+            if (!confirmation) {
+                return;
+            }
+            delete projectData[selectedProject];
+            saveData();
+            alert(`Project "${selectedProject}" has been deleted.`);
+            populateProjects();
+            updateGraph();
+        }
+        updateButton.addEventListener("click", updateCompletedHours);
+        hoursInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                updateCompletedHours();
+            }
+        });
+        projectSelect.addEventListener("change", () => {
+            updateLastUpdated();
+            populateEditFields();
+            populateHistory();
+        });
+        addProjectButton.addEventListener("click", addProject);
+        deleteProjectButton.addEventListener("click", deleteProject);
+        populateProjects();
+        populateHistory();
+        updateGraph();
+        updateLastUpdated();
+
+        // --- Todo List JS ---
+        const todoInput = document.getElementById("todo-input");
+        const addTodoBtn = document.getElementById("add-todo-btn");
+        const todoList = document.getElementById("todo-list");
+        const todoTagInput = document.getElementById("todo-tag-input");
+        const tagFilter = document.getElementById("tag-filter");
+
+        let todos = JSON.parse(localStorage.getItem("todos")) || [];
+
+        function saveTodos() {
+            localStorage.setItem("todos", JSON.stringify(todos));
+        }
+
+        function removeTodo(idx) {
+            todos.splice(idx, 1);
+            saveTodos();
+            renderTodos();
+        }
+
+        function toggleTodo(idx) {
+            todos[idx].completed = !todos[idx].completed;
+            saveTodos();
+            renderTodos();
+        }
+
+        // Expose for inline onclick
+        window.removeTodo = removeTodo;
+        window.toggleTodo = toggleTodo;
+
+        function renderTodos() {
+            todoList.innerHTML = "";
+            const selectedTag = tagFilter.value;
+            let filteredTodos = todos;
+            if (selectedTag) {
+                filteredTodos = todos.filter(todo => todo.tags && todo.tags.includes(selectedTag));
+            }
+            filteredTodos.forEach(todo => {
+                // Find the index in the original todos array for correct toggling/removal
+                const idx = todos.indexOf(todo);
+                const tagsDisplay = todo.tags && todo.tags.length
+                    ? `<span style="font-size:12px;color:#ffa726;margin-left:10px;">[${todo.tags.join(", ")}]</span>`
+                    : "";
+                const li = document.createElement("li");
+                li.className = todo.completed ? "completed" : "";
+                li.innerHTML = `
+                    <span style="flex:1;cursor:pointer;" onclick="toggleTodo(${idx})">${todo.text}${tagsDisplay}</span>
+                    <button class="remove-btn" onclick="removeTodo(${idx})">Remove</button>
+                `;
+                todoList.appendChild(li);
+            });
+            renderTagOptions();
+        }
+        function addTodo() {
+            const text = todoInput.value.trim();
+            const tags = todoTagInput.value.split(",").map(t => t.trim()).filter(t => t);
+            if (!text) return;
+            todos.push({ text, completed: false, tags });
+            todoInput.value = "";
+            todoTagInput.value = "";
+            saveTodos();
+            renderTodos();
+        }
+        function renderTagOptions() {
+            // Gather all unique tags
+            const allTags = [...new Set(todos.flatMap(todo => todo.tags || []))];
+            tagFilter.innerHTML = `<option value="">All Tags</option>`;
+            allTags.forEach(tag => {
+                const option = document.createElement("option");
+                option.value = tag;
+                option.textContent = tag;
+                tagFilter.appendChild(option);
+            });
+            // Keep selected tag after re-render
+            if (tagFilter.value) tagFilter.value = tagFilter.value;
+        }
+
+        tagFilter.addEventListener("change", renderTodos);
+        addTodoBtn.addEventListener("click", addTodo);
+        todoInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") addTodo();
+        });
+
+        // ...existing code for removeTodo, toggleTodo, saveTodos, etc...
+        renderTodos();
+        // ...existing code...
+    </script>
+</body>
+</html>
